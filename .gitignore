@@ -1,0 +1,5 @@
+*.pyc
+*.egg-info
+*pycache*
+*.vscode*
+*DS_Store*
