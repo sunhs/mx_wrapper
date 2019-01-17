@@ -217,6 +217,11 @@ def collect_train_params(model, config):
         if need_train:
             train_params.update(default_params)
 
+    # Ignore default params while training.
+    if default_param_keys:
+        for key in default_param_keys:
+            all_params[key].grad_req = 'null'
+
     return train_params
 
 
