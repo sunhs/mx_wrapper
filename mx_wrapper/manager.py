@@ -18,7 +18,7 @@ class Manager:
 
     Interfaces:
         compute_loss(self, outputs, labels)
-        setup_handler(self, epoch, mode, num_batch, ds_size)
+        create_handler(self, mode, num_batch)
 
     """
 
@@ -233,8 +233,8 @@ class Manager:
         batch and each epoch. A handler should have the following methods:
             `cleanup_batch(self, data, outputs, losses, batch, tick)`
             `cleanup_epoch(self)`
-        Specifically, `batch` is the current batch index and `hz` is the speed
-        for processing the current batch.
+        Specifically, `batch` is the current batch index and `tick` is the start
+        time for processing the current batch.
 
         Parameters
         ----------
