@@ -17,10 +17,13 @@ class Model(nn.HybridBlock):
         init=initializer.Uniform(),
         ctx=None,
         verbose=False,
-        force_reinit=False
+        force_reinit=False,
     ):
-        self.collect_params().initialize(
-            init=init, ctx=ctx, verbose=verbose, force_reinit=force_reinit
+        super(Model, self).initialize(
+            init=initializer.Xavier(rnd_type="uniform"),
+            ctx=ctx,
+            verbose=verbose,
+            force_reinit=force_reinit,
         )
 
     def hybrid_forward(self, F, x, *args):

@@ -1,9 +1,20 @@
 import argparse
 import datetime
 import importlib
+import os
 import sys
+import warnings
 
+from mxnet import npx
+
+
+npx.set_np()
+npx.random.seed(28)
 sys.setrecursionlimit(2000)
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+)
+warnings.simplefilter("ignore")
 
 
 def main():
@@ -50,7 +61,7 @@ def main():
 
     print('==========>> start to run model')
     if args.mode == 'all':
-        manager.train(test=False)
+        manager.train(test=True)
     elif args.mode == 'train':
         manager.train_epoch()
     elif args.mode == 'test':

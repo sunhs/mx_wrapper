@@ -8,5 +8,5 @@ class Manager(manager.Manager):
     def compute_loss(self, outputs, labels):
         pass
 
-    def setup_handler(self, epoch, mode, num_batch, ds_size):
+    def create_handler(self, mode, num_batch):
         pass
