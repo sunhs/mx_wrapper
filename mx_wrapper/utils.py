@@ -14,7 +14,7 @@ def parse_time(duration):
     hours = duration / 3600
     minutes = duration % 3600 / 60
     seconds = duration % 3600 % 60
-    return '%dh:%dmin:%ds' % (hours, minutes, seconds)
+    return "%dh:%dmin:%ds" % (hours, minutes, seconds)
 
 
 def check_latest_param(param_dir, prefix):
@@ -30,38 +30,38 @@ def check_latest_param(param_dir, prefix):
     for f_name in f_names:
         if not f_name.startswith(prefix):
             continue
-        epoch = int(f_name.split('-')[1])
+        epoch = int(f_name.split("-")[1])
         if epoch > max_index:
             max_index = epoch
     return max_index
 
 
 def init_model(
-    model, param_dir='', prefix='', index=None, pretrain_path='', ctx=None
+    model, param_dir="", prefix="", index=None, pretrain_path="", ctx=None
 ):
     latest_index = check_latest_param(param_dir, prefix)
 
     if latest_index != -1:
         if index is not None:
-            assert index >= 0 and index <= latest_index
+            assert 0 <= index <= latest_index, index
             latest_index = index
         load_path = os.path.join(
-            param_dir, '{}.params-{:04d}'.format(prefix, latest_index)
+            param_dir, "{}.params-{:04d}".format(prefix, latest_index)
         )
-        print('==========>> resume from {}'.format(load_path))
+        print("==========>> resume from {}".format(load_path))
         model.load_parameters(load_path, ctx)
 
     elif pretrain_path and os.path.exists(pretrain_path):
-        print('==========>> loading from pretrain: {}'.format(pretrain_path))
+        print("==========>> loading from pretrain: {}".format(pretrain_path))
         model.load_parameters(
             pretrain_path, ctx, allow_missing=True, ignore_extra=True
         )
 
     else:
-        print('==========>> build from scratch')
+        print("==========>> build from scratch")
 
     model.initialize(ctx=ctx)
-    print('==========>> done')
+    print("==========>> done")
     return latest_index
 
 
@@ -90,7 +90,7 @@ class MAP:
         # copied from https://github.com/zxwu/lsvc2017
         probs = self.scores
         labels = self.labels
-        mAP = np.zeros((probs.shape[1], ))
+        mAP = np.zeros((probs.shape[1],))
 
         for i in range(probs.shape[1]):
             iClass = probs[:, i]
@@ -112,26 +112,13 @@ class MAP:
         # return mAP
 
 
-def get_subblock_params(model, subblock_str):
-    """[DEPRECATED] Originally used by `config_params`, which is now deprecated.
-    Left here for backward compatibility.
-    """
-    children = subblock_str.split('.')
-    block = model
-
-    for child in children:
-        block = block._children.get(child)
-
-    return block.collect_params()
-
-
 def set_lr_wd_mult(params, param_group):
-    lr_mult = param_group.get('lr_mult', None)
-    wd_mult = param_group.get('wd_mult', None)
+    lr_mult = param_group.get("lr_mult", None)
+    wd_mult = param_group.get("wd_mult", None)
 
     if lr_mult == 0:
         for p in params.values():
-            p.grad_req = 'null'
+            p.grad_req = "null"
         return False
 
     for p in params.values():
@@ -143,46 +130,6 @@ def set_lr_wd_mult(params, param_group):
     return True
 
 
-def config_params(model, config):
-    """[DEPRECATED] Deprecated in favor of `collect_train_params`.
-    Left here for backward compatibility.
-    """
-    all_params = model.collect_params()
-    train_params = parameter.ParameterDict(all_params.prefix)
-    non_default_param_keys = set()
-    default_param_group = None
-
-    for cfg_param_group in config.PARAM_GROUPS:
-        if cfg_param_group['params'][0] == 'default':
-            default_param_group = cfg_param_group
-            continue
-
-        grp_block_names = cfg_param_group['params']
-        grp_params = parameter.ParameterDict(all_params.prefix)
-        grp_param_keys = set()
-        for block_name in grp_block_names:
-            block_params = get_subblock_params(model, block_name)
-            grp_params.update(block_params)
-            grp_param_keys.update(set(block_params.keys()))
-        non_default_param_keys.update(grp_param_keys)
-        need_train = set_lr_wd_mult(grp_params, cfg_param_group)
-        if need_train:
-            train_params.update(grp_params)
-
-    default_param_keys = set(all_params.keys()
-                            ).difference_update(non_default_param_keys)
-
-    if default_param_group and default_param_keys:
-        default_params = parameter.ParameterDict(all_params.prefix)
-        for key in default_param_keys:
-            default_params.update({key: all_params[key]})
-        need_train = set_lr_wd_mult(default_params, default_param_group)
-        if need_train:
-            train_params.update(default_params)
-
-    return train_params
-
-
 def collect_train_params(model, config):
     all_params = model.collect_params()
     train_params = parameter.ParameterDict(all_params.prefix)
@@ -190,14 +137,13 @@ def collect_train_params(model, config):
     default_param_group = None
 
     for cfg_param_group in config.PARAM_GROUPS:
-        patterns = cfg_param_group['params']
+        patterns = cfg_param_group["params"]
         if isinstance(patterns, list):
-            patterns = '|'.join(patterns)
-        assert isinstance(patterns, str)
-
-        if patterns == '.*':
+            patterns = "|".join(patterns)
+        if patterns == ".*":
             default_param_group = cfg_param_group
             continue
+        assert isinstance(patterns, str)
 
         grp_params = model.collect_params(patterns)
         grp_param_keys = set(grp_params.keys())
@@ -206,21 +152,18 @@ def collect_train_params(model, config):
         if need_train:
             train_params.update(grp_params)
 
-    default_param_keys = set(all_params.keys()
-                            ).difference_update(non_default_param_keys)
-
-    if default_param_group and default_param_keys:
-        default_params = parameter.ParameterDict(all_params.prefix)
-        for key in default_param_keys:
-            default_params.update({key: all_params[key]})
-        need_train = set_lr_wd_mult(default_params, default_param_group)
-        if need_train:
-            train_params.update(default_params)
-
-    # Ignore default params while training.
+    default_param_keys = set(all_params.keys()) - non_default_param_keys
     if default_param_keys:
-        for key in default_param_keys:
-            all_params[key].grad_req = 'null'
+        if default_param_group:
+            default_params = parameter.ParameterDict(all_params.prefix)
+            for key in default_param_keys:
+                default_params.update({key: all_params[key]})
+            need_train = set_lr_wd_mult(default_params, default_param_group)
+            if need_train:
+                train_params.update(default_params)
+        else:
+            for key in default_param_keys:
+                all_params[key].grad_req = "null"
 
     return train_params
 
@@ -233,17 +176,19 @@ def split_and_load(data, ctx=[mx.cpu()]):
                 gluon.utils.split_and_load(_data, ctx, even_split=False)
             )
         elif isinstance(_data, (tuple, list)):
-            assert len(_data) % len(ctx) == 0, \
-                'Batch size should be divisible by ctx count.'
-            chunk_size = len(_data) / len(ctx)
+            assert (
+                len(_data) % len(ctx) == 0
+            ), "Batch size should be divisible by ctx count."
+            chunk_size = len(_data) // len(ctx)
             chunks = []
-            for i in range(chunk_size):
+            for i in range(len(ctx)):
                 chunks.append(_data[i * chunk_size : (i + 1) * chunk_size])
             splitted_data.append(chunks)
         else:
             raise TypeError(
-                'Data should be either mxnet NDArray, tuple or list'
+                "Data should be either mxnet NDArray, tuple or list"
             )
+
     return list(zip(*splitted_data))
 
 
@@ -267,23 +212,77 @@ def send_email(sender_info, receiver, subject, content, images=None):
         image file path should be provided for the parameter `images`.
       images      (list): Each element is a dict with keys `path`, `cid`.
     """
-    msg_root = email.mime.multipart.MIMEMultipart('related')
-    msg_root['Subject'] = subject
-    msg_root['From'] = sender_info['email']
-    msg_root['To'] = receiver
+    msg_root = email.mime.multipart.MIMEMultipart("related")
+    msg_root["Subject"] = subject
+    msg_root["From"] = sender_info["email"]
+    msg_root["To"] = receiver
 
-    msg_text = email.mime.text.MIMEText(content, 'html', 'utf-8')
+    msg_text = email.mime.text.MIMEText(content, "html", "utf-8")
     msg_root.attach(msg_text)
 
     if images is not None:
         for image in images:
-            with open(image['path'], 'rb') as f:
+            with open(image["path"], "rb") as f:
                 msg_image = email.mime.image.MIMEImage(f.read())
-            msg_image.add_header('Content-ID', '<{}>'.format(image['cid']))
+            msg_image.add_header("Content-ID", "<{}>".format(image["cid"]))
             msg_root.attach(msg_image)
 
     smtp = smtplib.SMTP()
-    smtp.connect(sender_info['server'])
-    smtp.login(sender_info['email'], sender_info['password'])
-    smtp.sendmail(sender_info['email'], receiver, msg_root.as_string())
+    smtp.connect(sender_info["server"])
+    smtp.login(sender_info["email"], sender_info["password"])
+    smtp.sendmail(sender_info["email"], receiver, msg_root.as_string())
     smtp.quit()
+
+
+def get_subblock_params(model, subblock_str):
+    """[DEPRECATED] Originally used by `config_params`, which is now deprecated.
+    Left here for backward compatibility.
+    """
+    children = subblock_str.split(".")
+    block = model
+
+    for child in children:
+        block = block._children.get(child)
+
+    return block.collect_params()
+
+
+def config_params(model, config):
+    """[DEPRECATED] Deprecated in favor of `collect_train_params`.
+    Left here for backward compatibility.
+    """
+    all_params = model.collect_params()
+    train_params = parameter.ParameterDict(all_params.prefix)
+    non_default_param_keys = set()
+    default_param_group = None
+
+    for cfg_param_group in config.PARAM_GROUPS:
+        if cfg_param_group["params"][0] == "default":
+            default_param_group = cfg_param_group
+            continue
+
+        grp_block_names = cfg_param_group["params"]
+        grp_params = parameter.ParameterDict(all_params.prefix)
+        grp_param_keys = set()
+        for block_name in grp_block_names:
+            block_params = get_subblock_params(model, block_name)
+            grp_params.update(block_params)
+            grp_param_keys.update(set(block_params.keys()))
+        non_default_param_keys.update(grp_param_keys)
+        need_train = set_lr_wd_mult(grp_params, cfg_param_group)
+        if need_train:
+            train_params.update(grp_params)
+
+    default_param_keys = set(all_params.keys()).difference_update(
+        non_default_param_keys
+    )
+
+    if default_param_group and default_param_keys:
+        default_params = parameter.ParameterDict(all_params.prefix)
+        for key in default_param_keys:
+            default_params.update({key: all_params[key]})
+        need_train = set_lr_wd_mult(default_params, default_param_group)
+        if need_train:
+            train_params.update(default_params)
+
+    return train_params

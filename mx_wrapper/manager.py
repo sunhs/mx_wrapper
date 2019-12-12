@@ -3,12 +3,11 @@ import sys
 import time
 
 import mxnet as mx
-from mxnet import autograd, lr_scheduler, nd
+from mxnet import autograd, lr_scheduler, nd, np, util
 from mxnet.gluon import nn, trainer
 from mxnet.gluon.data import dataloader
-import numpy as np
 
-from . import utils
+from . import esc_seq, utils
 
 
 class Manager:
@@ -47,9 +46,9 @@ class Manager:
             self.config.PARAM_PREFIX,
             self.config.PARAM_INDEX,
             self.config.PRETRAIN_PATH,
-            ctx=self.ctx
+            ctx=self.ctx,
         )
-        if isinstance(self.model, nn.HybridBlock):
+        if isinstance(self.model, nn.HybridBlock) and not util.is_np_array():
             self.model.hybridize()
 
         self.trainer = self.create_trainer()
@@ -64,19 +63,19 @@ class Manager:
         epoch = self.latest_state + 1
         # print(datetime.datetime.now())
         s = time.time()
-        self._process_epoch(epoch, 'train')
+        self._process_epoch(epoch, "train")
         t = time.time()
-        print('train 1 epoch in {}\n'.format(utils.parse_time(t - s)))
+        print("train 1 epoch in {}\n".format(utils.parse_time(t - s)))
 
         if (
-            not self.config.SAVE_EPOCH_FREQ or
-            epoch % self.config.SAVE_EPOCH_FREQ == 0 or
-            epoch == self.config.MAX_EPOCHS
+            not self.config.SAVE_EPOCH_FREQ
+            or epoch % self.config.SAVE_EPOCH_FREQ == 0
+            or epoch == self.config.MAX_EPOCHS
         ):
             self.model.save_parameters(
                 os.path.join(
                     self.config.PARAM_DIR,
-                    '{}.params-{:04d}'.format(self.config.PARAM_PREFIX, epoch)
+                    "{}.params-{:04d}".format(self.config.PARAM_PREFIX, epoch),
                 )
             )
         self.latest_state = epoch
@@ -85,17 +84,19 @@ class Manager:
         epoch = self.latest_state
         # print(datetime.datetime.now())
         s = time.time()
-        self._process_epoch(epoch, 'test')
+        self._process_epoch(epoch, "test")
         t = time.time()
-        print('test 1 epoch in {}\n\n\n'.format(utils.parse_time(t - s)))
+        print("test 1 epoch in {}\n\n\n".format(utils.parse_time(t - s)))
 
     def _process_epoch(self, epoch, mode):
-        color_code = '\033[1;32m' if sys.platform != 'win32' else ''
-        end_color_code = '\033[0m' if sys.platform != 'win32' else ''
+        color_code = esc_seq.GREEN if sys.platform != "win32" else ""
+        end_color_code = esc_seq.END if sys.platform != "win32" else ""
         print(
-            color_code + \
-            '{}: epoch {:3d}/{:3d}'.format(mode, epoch, self.config.MAX_EPOCHS) + \
-            end_color_code
+            color_code
+            + "{}: epoch {:3d}/{:3d}".format(
+                mode, epoch, self.config.MAX_EPOCHS
+            )
+            + end_color_code
         )
 
         loader = self.create_dataloader(mode)
@@ -107,47 +108,49 @@ class Manager:
             gathered_losses = []
             losses = []
             tick = time.time()
-            splited_data = utils.split_and_load(raw_data, self.ctx)
+            splitted_data = utils.split_and_load(raw_data, self.ctx)
 
-            if mode == 'train':
+            if mode == "train":
                 autograd.set_training(True)
                 autograd.set_recording(True)
-            elif mode == 'test':
+            elif mode == "test":
                 autograd.set_training(False)
                 autograd.set_recording(False)
 
-            for data in splited_data:
+            for data in splitted_data:
                 inputs, labels = self.parse_data(data, mode)
                 outputs = self.parse_output(self.model(*inputs), mode)
                 gathered_outputs.append(outputs)
                 loss = self.compute_loss(outputs, labels)
                 gathered_losses.append(loss)
-                if mode == 'train':
+                if mode == "train":
                     losses.extend(loss)
 
             autograd.set_training(False)
             autograd.set_recording(False)
 
-            if mode == 'train':
+            if mode == "train":
                 autograd.backward(losses)
                 self.trainer.step(bs)
 
             handler.cleanup_batch(
                 raw_data, gathered_outputs, gathered_losses, i, tick
             )
+
         handler.cleanup_epoch()
 
     def create_trainer(self):
         train_params = utils.collect_train_params(self.model, self.config)
-        scheduler = self.create_lr_scheduler()
+        tmp_loader = self.create_dataloader("train")
+        scheduler = self.create_lr_scheduler(len(tmp_loader))
         optimizer_params = self.config.OPT_PARAMS.copy()
         if isinstance(scheduler, lr_scheduler.LRScheduler):
-            optimizer_params.update({'lr_scheduler': scheduler})
+            optimizer_params.update({"lr_scheduler": scheduler})
         return trainer.Trainer(
             train_params, self.config.OPTIMIZER, optimizer_params
         )
 
-    def create_lr_scheduler(self):
+    def create_lr_scheduler(self, num_batch):
         """Create a learning rate scheduler.
         Default: Use no scheduler.
 
@@ -173,9 +176,9 @@ class Manager:
         loader = dataloader.DataLoader(
             dataset,
             batch_size=self.config.BATCH_SIZE[mode],
-            shuffle=True,
+            shuffle=(mode == "train"),
             batchify_fn=dataset.batchify_fn,
-            num_workers=self.config.NUM_WORKERS
+            num_workers=self.config.NUM_WORKERS,
         )
         return loader
 
@@ -195,7 +198,7 @@ class Manager:
             The first element is the list of inputs,
             the second the list of labels.
         """
-        return data[:-1], [data[-1]]
+        return [data[0]], [data[2]]
 
     def parse_output(self, outputs, mode):
         """Make the outputs suitable for computing loss.
@@ -210,7 +213,11 @@ class Manager:
         -------
         list of mxnet.nd.NDArray
         """
-        return [outputs] if isinstance(outputs, nd.NDArray) else outputs
+        return (
+            [outputs]
+            if isinstance(outputs, (nd.NDArray, np.ndarray))
+            else outputs
+        )
 
     def compute_loss(self, outputs, labels):
         """Compute the loss.
