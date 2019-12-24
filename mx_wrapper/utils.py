@@ -176,13 +176,17 @@ def split_and_load(data, ctx=[mx.cpu()]):
                 gluon.utils.split_and_load(_data, ctx, even_split=False)
             )
         elif isinstance(_data, (tuple, list)):
-            assert (
-                len(_data) % len(ctx) == 0
-            ), "Batch size should be divisible by ctx count."
+            # assert (
+            #     len(_data) % len(ctx) == 0
+            # ), "Batch size should be divisible by ctx count."
             chunk_size = len(_data) // len(ctx)
             chunks = []
             for i in range(len(ctx)):
-                chunks.append(_data[i * chunk_size : (i + 1) * chunk_size])
+                start = i * chunk_size
+                end = (i + 1) * chunk_size
+                if i == len(ctx) - 1:
+                    end = len(_data)
+                chunks.append(_data[start:end])
             splitted_data.append(chunks)
         else:
             raise TypeError(
