@@ -49,6 +49,7 @@ class Manager:
             ctx=self.ctx,
         )
         if isinstance(self.model, nn.HybridBlock) and not util.is_np_array():
+            print("Hybridize model..")
             self.model.hybridize()
 
         self.trainer = self.create_trainer()
@@ -198,7 +199,7 @@ class Manager:
             The first element is the list of inputs,
             the second the list of labels.
         """
-        return [data[0]], [data[2]]
+        return [data[0]], [data[1]]
 
     def parse_output(self, outputs, mode):
         """Make the outputs suitable for computing loss.
