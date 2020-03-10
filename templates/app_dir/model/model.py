@@ -1,3 +1,4 @@
+import mxnet as mx
 from mxnet import initializer
 from mxnet.gluon import nn
 
@@ -10,7 +11,10 @@ class Model(nn.HybridBlock):
         :param config: The global config.
         """
         super(Model, self).__init__()
-        self.initialize()
+        self.config = config
+        self.ctx = [mx.cpu(0)]
+        if config.GPUS and mx.test_utils.list_gpus():
+            self.ctx = [mx.gpu(i) for i in self.ctx]
 
     def initialize(
         self,
