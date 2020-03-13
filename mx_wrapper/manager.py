@@ -54,6 +54,18 @@ class Manager:
 
         self.trainer = self.create_trainer()
 
+    def export_model(self):
+        if not isinstance(self.model, nn.HybridBlock):
+            raise ValueError("Expected a HybridBlock but the model seems not one.")
+
+        loader = self.create_dataloader('train')
+        raw_data = next(iter(loader))
+        splitted_data = utils.split_and_load(raw_data, self.ctx)
+        for data in splitted_data:
+            inputs, labels = self.parse_data(data, 'train')
+            self.model(*inputs)
+        self.model.export(os.path.join(self.config.PARAM_DIR, 'model'), 9999)
+
     def train(self, test=True):
         for _ in range(self.latest_state + 1, self.config.MAX_EPOCHS):
             self.train_epoch()

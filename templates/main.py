@@ -5,11 +5,10 @@ import os
 import sys
 import warnings
 
-from mxnet import npx
+import mxnet as mx
 
 
-npx.set_np()
-npx.random.seed(28)
+mx.random.seed(28)
 sys.setrecursionlimit(2000)
 sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -26,10 +25,11 @@ def main():
         '-m',
         '--mode',
         type=str,
-        choices=['all', 'train', 'test'],
+        choices=['all', 'train', 'test', 'export'],
         default='all',
         help='The mode to run. `all` will train and test epochs alternately. \
-        `train` and `test` will train and test 1 epoch, respectively.'
+        `train` and `test` will train and test 1 epoch, respectively. \
+        `export` will try to export a HybridBlock model.'
     )
     parser.add_argument(
         '-c', '--config', type=int, default=1, help='Which config file to use.'
@@ -58,6 +58,11 @@ def main():
         '{}.manager.manager'.format(args.app)
     )
     manager = manager_module.Manager(model, dataset, config)
+
+    if args.mode == 'export':
+        print('==========>> start to export model')
+        manager.export_model()
+        return
 
     print('==========>> start to run model')
     if args.mode == 'all':
