@@ -56,15 +56,17 @@ class Manager:
 
     def export_model(self):
         if not isinstance(self.model, nn.HybridBlock):
-            raise ValueError("Expected a HybridBlock but the model seems not one.")
+            raise ValueError(
+                "Expected a HybridBlock but the model seems not one."
+            )
 
-        loader = self.create_dataloader('train')
+        loader = self.create_dataloader("train")
         raw_data = next(iter(loader))
         splitted_data = utils.split_and_load(raw_data, self.ctx)
         for data in splitted_data:
-            inputs, labels = self.parse_data(data, 'train')
+            inputs, labels = self.parse_data(data, "train")
             self.model(*inputs)
-        self.model.export(os.path.join(self.config.PARAM_DIR, 'model'), 9999)
+        self.model.export(os.path.join(self.config.PARAM_DIR, "model"), 9999)
 
     def train(self, test=True):
         for _ in range(self.latest_state + 1, self.config.MAX_EPOCHS):
@@ -73,13 +75,12 @@ class Manager:
                 self.test_epoch()
 
     def train_epoch(self):
-        epoch = self.latest_state + 1
-        # print(datetime.datetime.now())
         s = time.time()
-        self._process_epoch(epoch, "train")
+        self._process_epoch("train")
         t = time.time()
         print("train 1 epoch in {}\n".format(utils.parse_time(t - s)))
 
+        epoch = self.latest_state + 1
         if (
             not self.config.SAVE_EPOCH_FREQ
             or epoch % self.config.SAVE_EPOCH_FREQ == 0
@@ -91,23 +92,21 @@ class Manager:
                     "{}.params-{:04d}".format(self.config.PARAM_PREFIX, epoch),
                 )
             )
-        self.latest_state = epoch
+        self.latest_state += 1
 
     def test_epoch(self):
-        epoch = self.latest_state
-        # print(datetime.datetime.now())
         s = time.time()
-        self._process_epoch(epoch, "test")
+        self._process_epoch("test")
         t = time.time()
         print("test 1 epoch in {}\n\n\n".format(utils.parse_time(t - s)))
 
-    def _process_epoch(self, epoch, mode):
+    def _process_epoch(self, mode):
         color_code = esc_seq.GREEN if sys.platform != "win32" else ""
         end_color_code = esc_seq.END if sys.platform != "win32" else ""
         print(
             color_code
             + "{}: epoch {:3d}/{:3d}".format(
-                mode, epoch, self.config.MAX_EPOCHS
+                mode, self.latest_state + 1, self.config.MAX_EPOCHS
             )
             + end_color_code
         )
@@ -116,7 +115,6 @@ class Manager:
         handler = self.create_handler(mode=mode, num_batch=len(loader))
 
         for i, raw_data in enumerate(loader):
-            bs = raw_data[0].shape[0]
             gathered_outputs = []
             gathered_losses = []
             losses = []
@@ -144,7 +142,7 @@ class Manager:
 
             if mode == "train":
                 autograd.backward(losses)
-                self.trainer.step(bs)
+                self.trainer.step(raw_data[0].shape[0])
 
             handler.cleanup_batch(
                 raw_data, gathered_outputs, gathered_losses, i, tick
@@ -231,6 +229,26 @@ class Manager:
             if isinstance(outputs, (nd.NDArray, np.ndarray))
             else outputs
         )
+
+    def backward_update(self, raw_data, outputs, losses):
+        """Do backward.
+        Usually it's enough to just backward the losses with autograd
+        and do `optimizer.step(bs)`. But sometimes more customizations
+        are needed, for example when only parts of the samples participate
+        in training and thus `bs` should be customized.
+
+        Parameters
+        ----------
+        raw_data: list of mxnet.nd.NDArray
+            Data from dataloader.
+        outputs: list of list of mxnet.nd.NDArray
+            [[o0_gpu0, o1_gpu0, ...], ...].
+        losses: list of mxnet.nd.NDArray
+            [l0_gpu0, l1_gpu0, ...].
+        """
+        autograd.backward(losses)
+        bs = raw_data[0].shape[0]
+        self.trainer.step(bs)
 
     def compute_loss(self, outputs, labels):
         """Compute the loss.
