@@ -31,4 +31,6 @@ class Model(nn.HybridBlock):
         )
 
     def hybrid_forward(self, F, x, *args):
+        # if getattr(self.config, "OUTPUT_PROB", None):
+        #     outputs = F.softmax(outputs)
         pass

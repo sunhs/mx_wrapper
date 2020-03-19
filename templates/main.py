@@ -39,6 +39,8 @@ def main():
     config = importlib.import_module(
         '{}.confs.config_{}'.format(args.app, args.config)
     )
+    if args.mode == 'export':
+        setattr(config, "OUTPUT_PROB", True)
 
     print('==========>> build dataset')
     dataset_module = importlib.import_module(
