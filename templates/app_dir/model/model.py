@@ -14,7 +14,7 @@ class Model(nn.HybridBlock):
         self.config = config
         self.ctx = [mx.cpu(0)]
         if config.GPUS and mx.test_utils.list_gpus():
-            self.ctx = [mx.gpu(i) for i in self.ctx]
+            self.ctx = [mx.gpu(i) for i in self.config.GPUS]
 
     def initialize(
         self,

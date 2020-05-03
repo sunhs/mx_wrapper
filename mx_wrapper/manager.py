@@ -3,7 +3,7 @@ import sys
 import time
 
 import mxnet as mx
-from mxnet import autograd, lr_scheduler, nd, np, util
+from mxnet import autograd, lr_scheduler, np, util
 from mxnet.gluon import nn, trainer
 from mxnet.gluon.data import dataloader
 
@@ -226,7 +226,7 @@ class Manager:
         """
         return (
             [outputs]
-            if isinstance(outputs, (nd.NDArray, np.ndarray))
+            if isinstance(outputs, np.ndarray)
             else outputs
         )
 
