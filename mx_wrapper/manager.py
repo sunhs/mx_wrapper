@@ -48,7 +48,7 @@ class Manager:
             self.config.PRETRAIN_PATH,
             ctx=self.ctx,
         )
-        if isinstance(self.model, nn.HybridBlock) and not util.is_np_array():
+        if isinstance(self.model, nn.HybridBlock):
             print("Hybridize model..")
             self.model.hybridize()
 
