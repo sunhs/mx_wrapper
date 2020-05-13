@@ -73,6 +73,7 @@ class Manager:
             self.train_epoch()
             if test:
                 self.test_epoch()
+            self.latest_state += 1
 
     def train_epoch(self):
         s = time.time()
@@ -92,7 +93,6 @@ class Manager:
                     "{}.params-{:04d}".format(self.config.PARAM_PREFIX, epoch),
                 )
             )
-        self.latest_state += 1
 
     def test_epoch(self):
         s = time.time()
