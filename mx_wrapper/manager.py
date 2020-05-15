@@ -153,8 +153,12 @@ class Manager:
     def create_trainer(self):
         train_params = utils.collect_train_params(self.model, self.config)
         tmp_loader = self.create_dataloader("train")
-        scheduler = self.create_lr_scheduler(len(tmp_loader))
+        n_batch = len(tmp_loader)
+        scheduler = self.create_lr_scheduler(n_batch)
         optimizer_params = self.config.OPT_PARAMS.copy()
+        epoch = self.latest_state + 1
+        if epoch > 0:
+            optimizer_params.update({"begin_num_update": epoch * n_batch})
         if isinstance(scheduler, lr_scheduler.LRScheduler):
             optimizer_params.update({"lr_scheduler": scheduler})
         return trainer.Trainer(
@@ -224,11 +228,7 @@ class Manager:
         -------
         list of mxnet.nd.NDArray
         """
-        return (
-            [outputs]
-            if isinstance(outputs, nd.NDArray)
-            else outputs
-        )
+        return [outputs] if isinstance(outputs, nd.NDArray) else outputs
 
     def backward_update(self, raw_data, outputs, losses):
         """Do backward.
