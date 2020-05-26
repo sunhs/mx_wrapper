@@ -60,6 +60,8 @@ class Manager:
                 "Expected a HybridBlock but the model seems not one."
             )
 
+        autograd.set_training(False)
+        autograd.set_recording(False)
         loader = self.create_dataloader("train")
         raw_data = next(iter(loader))
         splitted_data = utils.split_and_load(raw_data, self.ctx)
