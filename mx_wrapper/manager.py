@@ -86,8 +86,8 @@ class Manager:
         epoch = self.latest_state + 1
         if (
             not self.config.SAVE_EPOCH_FREQ
-            or epoch % self.config.SAVE_EPOCH_FREQ == 0
-            or epoch == self.config.MAX_EPOCHS
+            or (epoch + 1) % self.config.SAVE_EPOCH_FREQ == 0
+            or (epoch + 1) == self.config.MAX_EPOCHS
         ):
             self.model.save_parameters(
                 os.path.join(
